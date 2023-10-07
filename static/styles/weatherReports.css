@@ -1,0 +1,6 @@
+.items li:nth-child(6) {
+    border-left: 4px solid #fff;
+}
+.items li:nth-child(1) {
+    border-left: none;
+}

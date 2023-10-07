@@ -1,0 +1,12 @@
+.items li:nth-child(5) {
+    border-left: 4px solid #fff;
+}
+
+.items li:nth-child(1) {
+    border-left: none;
+}
+
+.stream{
+    margin-left: 400px;
+    margin: 100px;
+}
