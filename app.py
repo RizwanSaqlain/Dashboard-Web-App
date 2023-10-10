@@ -1,4 +1,4 @@
-from flask import Flask, Request, render_template, Response, jsonify
+from flask import Flask, Request, render_template, Response, jsonify, session
 from ultralytics import YOLO
 import cv2
 import time
@@ -8,7 +8,6 @@ app = Flask(__name__)
 model=YOLO("yolov8_100epochs.pt")
 camera = None
 camera_active = False
-
 
 class_labels = {
     0: 'Hardhat',
@@ -47,6 +46,7 @@ def custom_yolo_detection(frame):
 
 
 def annotate_frame(frame, detection_results):  
+    global class_count
     thickness = 2
     
     for result in detection_results:
@@ -54,7 +54,9 @@ def annotate_frame(frame, detection_results):
         classes_present=result.boxes.cls.tolist()
         bbox = result.boxes.xyxy.tolist()  
         confidences=result.boxes.conf.tolist()
+        class_count = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0}
         for (class_id, xyxy, conf) in zip(classes_present, bbox, confidences):
+            class_count[class_id] += 1
             class_name=class_labels[class_id]                                  #Detected class names
             x1, y1, x2, y2 = [int(xyxy[i]) for i in range(4)] 
             confidence = str(round(conf,2))
@@ -71,7 +73,7 @@ def annotate_frame(frame, detection_results):
             text_y = y1 - 10                                                       #Label location adjustment
             cv2.putText(frame, class_name + ' ' + confidence, (text_x, text_y), font, font_scale, color, font_thickness)
 
-        return frame
+        return frame, class_count
 
 
 
@@ -86,11 +88,8 @@ def generate_frames():
 
         else:
             frame_count += 1
-            end_time = time.time()
-            elapsed_time = end_time - start_time
-            fps = frame_count / elapsed_time
             detected_objects = custom_yolo_detection(frame)
-            annotated_frame = annotate_frame(frame, detected_objects)
+            annotated_frame, class_count = annotate_frame(frame, detected_objects)
 
             '''if frame_count % 2 == 0 :
                 detected_objects = custom_yolo_detection(frame)
@@ -98,7 +97,10 @@ def generate_frames():
             else:
                 annotated_frame=frame'''
                 
-            cv2.putText(frame, f"FPS: {fps:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            fps = frame_count / elapsed_time
+            cv2.putText(annotated_frame, f"FPS: {fps:.2f}    Total Persons:{class_count[5]}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
 
             ret, buffer = cv2.imencode('.jpg',annotated_frame)
@@ -109,16 +111,12 @@ def generate_frames():
 
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        
 
         #time.sleep(0.008)  # Adjust the sleep time to control the frame rate
 
 
 
-
-@app.route("/")
-def index():
-    check_camera()
-    return render_template("dashboard.html")
 
 '''@app.route("/login", methods=['GET', 'POST'])
 def login():
@@ -127,6 +125,7 @@ def login():
 
     return render_template("login.html")'''
 
+@app.route("/")
 @app.route("/dashboard", methods=['GET','POST'])
 def dashboard():
     check_camera()
@@ -156,7 +155,6 @@ def CCTV():
         camera = cv2.VideoCapture(0)
         time.sleep(2)
         camera_active = True
-    
     return render_template("CCTV.html") 
 
 @app.route("/weatherReports", methods=['GET','POST'])
@@ -167,8 +165,6 @@ def weatherReports():
 @app.route('/video_feed')
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-
 
 if __name__ == '__main__':
     app.run(debug=True)
