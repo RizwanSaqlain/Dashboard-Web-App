@@ -10,28 +10,16 @@ camera = None
 camera_active = False
 
 class_labels = {
-    0: 'Hardhat',
-    1: 'Mask',
-    2: 'NO-Hardhat',
-    3: 'NO-Mask',
-    4: 'NO-Safety Vest',
-    5: 'Person',
-    6: 'Safety Cone',
-    7: 'Safety Vest',
-    8: 'machinery',
-    9: 'vehicle'
-}
-label_colors={
-    0: (57, 47, 140),
-    1: (231,236,239),
-    2: (57, 47, 140),
-    3: (231,236,239),
-    4: (0,0,255),
-    5: (0,230,0),
-    6: (116,191,149),
-    7: (0,0,255),
-    8: (32,18,70),
-    9: (32,18,70)
+    0: ['Hardhat', (57, 47, 140)],
+    1: ['Mask',(231,236,239)],
+    2: ['NO-Hardhat',(57, 47, 140)],
+    3: ['NO-Mask',(231,236,239)],
+    4: ['NO-Safety Vest',(0,0,255)],
+    5: ['Person',(0,230,0)],
+    6: ['Safety Cone',(116,191,149)],
+    7: ['Safety Vest',(0,0,255)],
+    8: ['machinery',(32,255,255)],
+    9: ['vehicle',(32,255,255)]
 }
 
 def check_camera():
@@ -41,7 +29,7 @@ def check_camera():
         camera_active = False
 
 def custom_yolo_detection(frame):
-    results=model.predict(source=frame, conf=0.3)
+    results=model.predict(source=frame, conf=0.3, verbose=False)
     return results
 
 
@@ -57,10 +45,10 @@ def annotate_frame(frame, detection_results):
         class_count = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0}
         for (class_id, xyxy, conf) in zip(classes_present, bbox, confidences):
             class_count[class_id] += 1
-            class_name=class_labels[class_id]                                  #Detected class names
+            class_name=class_labels[class_id][0]                                 #Detected class names
             x1, y1, x2, y2 = [int(xyxy[i]) for i in range(4)] 
             confidence = str(round(conf,2))
-            color=label_colors[class_id]
+            color=class_labels[class_id][1]
 
 
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
@@ -78,7 +66,6 @@ def annotate_frame(frame, detection_results):
 
 
 def generate_frames():
-    count=0
     frame_count = 0
     start_time=time.time()
     while True:
@@ -153,6 +140,10 @@ def CCTV():
     global camera_active
     if camera_active == False:
         camera = cv2.VideoCapture(0)
+        while True:
+            if camera.isOpened() == True:
+                break
+            time.sleep(1)
         time.sleep(2)
         camera_active = True
     return render_template("CCTV.html") 
