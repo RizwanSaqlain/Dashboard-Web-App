@@ -1,5 +1,8 @@
 from flask import Flask, Request, render_template, Response, jsonify, session
 from ultralytics import YOLO
+import requests
+from icecream import ic
+from urllib.parse import quote
 import cv2
 import time
 
@@ -151,7 +154,18 @@ def CCTV():
 @app.route("/weatherReports", methods=['GET','POST'])
 def weatherReports():
     check_camera()
-    return render_template("weatherReports.html")
+    base_url = 'http://api.weatherapi.com/v1'
+    api_method = '/current.json'
+    city='New Delhi'
+    api_key = 'b4de7d54fab44efbb39204156231310'
+    city = quote(city)
+    url= f'{base_url}{api_method}?key={api_key}&q={city}'
+
+    response = requests.get(url)
+    data = response.json()
+    ic(response)
+    ic(response.json())
+    return render_template("weatherReports.html",weather_data=data)
 
 @app.route('/video_feed')
 def video_feed():
