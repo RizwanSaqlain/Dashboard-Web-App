@@ -1,5 +1,8 @@
-from flask import Flask, Request, render_template, Response, jsonify
+from flask import Flask, Request, render_template, Response, jsonify, session
 from ultralytics import YOLO
+import requests
+from icecream import ic
+from urllib.parse import quote
 import cv2
 import time
 
@@ -9,30 +12,17 @@ model=YOLO("yolov8_100epochs.pt")
 camera = None
 camera_active = False
 
-
 class_labels = {
-    0: 'Hardhat',
-    1: 'Mask',
-    2: 'NO-Hardhat',
-    3: 'NO-Mask',
-    4: 'NO-Safety Vest',
-    5: 'Person',
-    6: 'Safety Cone',
-    7: 'Safety Vest',
-    8: 'machinery',
-    9: 'vehicle'
-}
-label_colors={
-    0: (57, 47, 140),
-    1: (231,236,239),
-    2: (57, 47, 140),
-    3: (231,236,239),
-    4: (0,0,255),
-    5: (0,230,0),
-    6: (116,191,149),
-    7: (0,0,255),
-    8: (32,18,70),
-    9: (32,18,70)
+    0: ['Hardhat', (57, 47, 140)],
+    1: ['Mask',(231,236,239)],
+    2: ['NO-Hardhat',(57, 47, 140)],
+    3: ['NO-Mask',(231,236,239)],
+    4: ['NO-Safety Vest',(0,0,255)],
+    5: ['Person',(0,230,0)],
+    6: ['Safety Cone',(116,191,149)],
+    7: ['Safety Vest',(0,0,255)],
+    8: ['machinery',(32,255,255)],
+    9: ['vehicle',(32,255,255)]
 }
 
 def check_camera():
@@ -42,11 +32,12 @@ def check_camera():
         camera_active = False
 
 def custom_yolo_detection(frame):
-    results=model.predict(source=frame, conf=0.3)
+    results=model.predict(source=frame, conf=0.3, verbose=False)
     return results
 
 
 def annotate_frame(frame, detection_results):  
+    global class_count
     thickness = 2
     
     for result in detection_results:
@@ -54,11 +45,13 @@ def annotate_frame(frame, detection_results):
         classes_present=result.boxes.cls.tolist()
         bbox = result.boxes.xyxy.tolist()  
         confidences=result.boxes.conf.tolist()
+        class_count = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0}
         for (class_id, xyxy, conf) in zip(classes_present, bbox, confidences):
-            class_name=class_labels[class_id]                                  #Detected class names
+            class_count[class_id] += 1
+            class_name=class_labels[class_id][0]                                 #Detected class names
             x1, y1, x2, y2 = [int(xyxy[i]) for i in range(4)] 
             confidence = str(round(conf,2))
-            color=label_colors[class_id]
+            color=class_labels[class_id][1]
 
 
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
@@ -71,12 +64,11 @@ def annotate_frame(frame, detection_results):
             text_y = y1 - 10                                                       #Label location adjustment
             cv2.putText(frame, class_name + ' ' + confidence, (text_x, text_y), font, font_scale, color, font_thickness)
 
-        return frame
+        return frame, class_count
 
 
 
 def generate_frames():
-    count=0
     frame_count = 0
     start_time=time.time()
     while True:
@@ -86,11 +78,8 @@ def generate_frames():
 
         else:
             frame_count += 1
-            end_time = time.time()
-            elapsed_time = end_time - start_time
-            fps = frame_count / elapsed_time
             detected_objects = custom_yolo_detection(frame)
-            annotated_frame = annotate_frame(frame, detected_objects)
+            annotated_frame, class_count = annotate_frame(frame, detected_objects)
 
             '''if frame_count % 2 == 0 :
                 detected_objects = custom_yolo_detection(frame)
@@ -98,7 +87,10 @@ def generate_frames():
             else:
                 annotated_frame=frame'''
                 
-            cv2.putText(frame, f"FPS: {fps:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            fps = frame_count / elapsed_time
+            cv2.putText(annotated_frame, f"FPS: {fps:.2f}    Total Persons:{class_count[5]}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
 
             ret, buffer = cv2.imencode('.jpg',annotated_frame)
@@ -109,16 +101,12 @@ def generate_frames():
 
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        
 
         #time.sleep(0.008)  # Adjust the sleep time to control the frame rate
 
 
 
-
-@app.route("/")
-def index():
-    check_camera()
-    return render_template("dashboard.html")
 
 '''@app.route("/login", methods=['GET', 'POST'])
 def login():
@@ -127,6 +115,7 @@ def login():
 
     return render_template("login.html")'''
 
+@app.route("/")
 @app.route("/dashboard", methods=['GET','POST'])
 def dashboard():
     check_camera()
@@ -154,21 +143,33 @@ def CCTV():
     global camera_active
     if camera_active == False:
         camera = cv2.VideoCapture(0)
+        while True:
+            if camera.isOpened() == True:
+                break
+            time.sleep(1)
         time.sleep(2)
         camera_active = True
-    
     return render_template("CCTV.html") 
 
 @app.route("/weatherReports", methods=['GET','POST'])
 def weatherReports():
     check_camera()
-    return render_template("weatherReports.html")
+    base_url = 'http://api.weatherapi.com/v1'
+    api_method = '/current.json'
+    city='New Delhi'
+    api_key = 'b4de7d54fab44efbb39204156231310'
+    city = quote(city)
+    url= f'{base_url}{api_method}?key={api_key}&q={city}'
+
+    response = requests.get(url)
+    data = response.json()
+    ic(response)
+    ic(response.json())
+    return render_template("weatherReports.html",weather_data=data)
 
 @app.route('/video_feed')
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-
 
 if __name__ == '__main__':
     app.run(debug=True)
