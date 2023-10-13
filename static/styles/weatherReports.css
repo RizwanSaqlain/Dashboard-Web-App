@@ -4,3 +4,57 @@
 .items li:nth-child(1) {
     border-left: none;
 }
+#interface{
+    height: 100vh;
+    width: 100%;
+    background: url(../images/clouds.jpg);
+    background-size: cover;
+    background-position: center;
+}
+.i-name{
+    color: #c3bebe;
+}
+
+.details {
+    background-color: #fff;
+    max-width: 60rem;
+    min-height: 25rem;
+    margin: auto;
+    margin-top: 10rem;
+    padding: 20px;
+    border-radius: 5px;
+    /*box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);*/
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: linear-gradient(90deg,rgba(255, 255, 255, 0.4) 10%, transparent 50%, rgba(255, 255, 255, 0.5) 100%);
+    text-align: center;
+    font-size: 24px;
+    box-shadow: 0 0 100px rgba(0, 0, 0, 0.5); /* Box shadow */
+
+    /* Floating animation */
+    animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translate(0, 0);
+    }
+    50% {
+        transform: translate(0, -20px); /* Adjust the distance and direction */
+    }
+}
+
+.details h1 {
+    text-align: center;
+    margin: 0;
+    font-size: 24px;
+}
+
+p {
+    margin:0;
+}
+
+strong {
+    font-weight: bold;
+}
