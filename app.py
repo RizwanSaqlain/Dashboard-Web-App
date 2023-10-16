@@ -5,12 +5,15 @@ from icecream import ic
 from urllib.parse import quote
 import cv2
 import time
+import multiprocessing
 
 
 app = Flask(__name__)
 model=YOLO("yolov8_100epochs.pt")
 camera = None
 camera_active = False
+frame_queue = multiprocessing.Queue(maxsize=30)
+frame_byte_queue = multiprocessing.Queue(maxsize=30)
 
 class_labels = {
     0: ['Hardhat', (57, 47, 140)],
@@ -68,7 +71,7 @@ def annotate_frame(frame, detection_results):
 
 
 
-def generate_frames():
+def instant_generate_frames():
     frame_count = 0
     start_time=time.time()
     while True:
@@ -81,11 +84,6 @@ def generate_frames():
             detected_objects = custom_yolo_detection(frame)
             annotated_frame, class_count = annotate_frame(frame, detected_objects)
 
-            '''if frame_count % 2 == 0 :
-                detected_objects = custom_yolo_detection(frame)
-                annotated_frame = annotate_frame(frame, detected_objects)
-            else:
-                annotated_frame=frame'''
                 
             end_time = time.time()
             elapsed_time = end_time - start_time
@@ -103,9 +101,88 @@ def generate_frames():
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
         
 
+        #time.sleep(0.008)  # Adjust the sleep time to control the frame rate'''
+
+
+
+def capture_frames(q):
+    cap = cv2.VideoCapture(0)
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        q.put(frame)
+
+    cap.release()
+
+def generate_frames(q):
+    global frame_byte_queue
+    frame_count = 0
+    thickness = 2
+    start_time=time.time()
+    while True:
+        if not q.empty():
+            frame = q.get()
+            frame_count += 1
+            detected_objects = model.predict(source=frame, conf=0.3, verbose=False)
+            for result in detected_objects:
+                #class_labels=result.names                                             #To use when class names unknown, adds extra computation
+                classes_present=result.boxes.cls.tolist()
+                bbox = result.boxes.xyxy.tolist()  
+                confidences=result.boxes.conf.tolist()
+                class_count = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0}
+                for (class_id, xyxy, conf) in zip(classes_present, bbox, confidences):
+                    class_count[class_id] += 1
+                    class_name=class_labels[class_id][0]                                 #Detected class names
+                    x1, y1, x2, y2 = [int(xyxy[i]) for i in range(4)] 
+                    confidence = str(round(conf,2))
+                    color=class_labels[class_id][1]
+
+
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
+
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    font_scale = 0.5
+                    font_thickness = 1
+                    text_size = cv2.getTextSize(class_name, font, font_scale, font_thickness)[0]
+                    text_x = x1
+                    text_y = y1 - 10                                                       #Label location adjustment
+                    cv2.putText(frame, class_name + ' ' + confidence, (text_x, text_y), font, font_scale, color, font_thickness)
+
+
+            #annotated_frame, class_count = annotate_frame(frame, detected_objects)
+            
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            fps = 1 / elapsed_time
+            #print(f"Frame Rate: {fps:.2f} FPS")
+            cv2.putText(frame, f"FPS: {fps:.2f}    Total Persons:{class_count[5]}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+
+            ret, buffer = cv2.imencode('.jpg',frame)
+            if not ret:
+                break
+
+            frame_bytes = buffer.tobytes()
+            frame_byte_queue.put(frame_bytes)
+            return
+
+        
+        
+
         #time.sleep(0.008)  # Adjust the sleep time to control the frame rate
 
 
+def send_frames():
+    global frame_queue
+    global frame_byte_queue
+    while True:
+        generate_frames(frame_queue)
+        if not frame_byte_queue.empty():
+            frame_bytes = frame_byte_queue.get()
+            yield (b'--frame\r\n'
+                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            
 
 
 '''@app.route("/login", methods=['GET', 'POST'])
@@ -169,7 +246,10 @@ def weatherReports():
 
 @app.route('/video_feed')
 def video_feed():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    capture_process = multiprocessing.Process(target=capture_frames, args=(frame_queue,))
+    capture_process.start()
+    return Response(send_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')       #When using instant_generate_frame remove capture process
+    '''return Response(instant_generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')'''
 
 if __name__ == '__main__':
     app.run(debug=True)
