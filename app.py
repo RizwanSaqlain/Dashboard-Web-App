@@ -9,11 +9,11 @@ import multiprocessing
 
 
 app = Flask(__name__)
-model=YOLO("yolov8_100epochs.pt")
+model=YOLO("yolov8m_100.pt")                   #Yolov8x_300 for more accurate confidence scores at the cost of FPS.
 camera = None
 camera_active = False
-frame_queue = multiprocessing.Queue(maxsize=30)
-frame_byte_queue = multiprocessing.Queue(maxsize=30)
+frame_queue = multiprocessing.Queue(maxsize=5)
+frame_byte_queue = multiprocessing.Queue(maxsize=5)
 
 class_labels = {
     0: ['Hardhat', (57, 47, 140)],
@@ -127,9 +127,9 @@ def generate_frames(q):
             detected_objects = model.predict(source=frame, conf=0.3, verbose=False)
             for result in detected_objects:
                 #class_labels=result.names                                             #To use when class names unknown, adds extra computation
-                classes_present=result.boxes.cls.tolist()
+                classes_present = result.boxes.cls.tolist()
                 bbox = result.boxes.xyxy.tolist()  
-                confidences=result.boxes.conf.tolist()
+                confidences = result.boxes.conf.tolist()
                 class_count = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0}
                 for (class_id, xyxy, conf) in zip(classes_present, bbox, confidences):
                     class_count[class_id] += 1
@@ -248,8 +248,9 @@ def weatherReports():
 def video_feed():
     capture_process = multiprocessing.Process(target=capture_frames, args=(frame_queue,))
     capture_process.start()
-    return Response(send_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')       #When using instant_generate_frame remove capture process
-    '''return Response(instant_generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')'''
+    return Response(send_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')       #When using instant_generate_frames() remove capture process
+    #return Response(instant_generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
 
 if __name__ == '__main__':
     app.run(debug=True)
