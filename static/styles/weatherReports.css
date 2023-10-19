@@ -14,13 +14,21 @@
 .i-name{
     color: #c3bebe;
 }
-
-.details {
+.details{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-row-gap: 2rem;
+    margin-left: 1rem;
+    margin-top: 1rem;
+    justify-content: space-around;
+    align-items:center;
+}
+.detail {
     background-color: #fff;
     max-width: 60rem;
-    min-height: 25rem;
+    min-height: 10rem;
     margin: auto;
-    margin-top: 10rem;
+    margin-top: 1rem;
     padding: 20px;
     border-radius: 5px;
     /*box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);*/
@@ -33,7 +41,7 @@
     box-shadow: 0 0 100px rgba(0, 0, 0, 0.5); /* Box shadow */
 
     /* Floating animation */
-    animation: float 4s ease-in-out infinite;
+    /*animation: float 4s ease-in-out infinite;*/
 }
 
 @keyframes float {

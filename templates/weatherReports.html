@@ -25,8 +25,8 @@
             <li><i class="fas fa-edit"></i><a href="/employees">Employees</a></li>
             <li><i class="fa-solid fa-video"></i> <a href="/CCTV">CCTV</a></li>
             <li><i class="fa-solid fa-cloud"></i><a href="/weatherReports">Weather Reports</a></li>
-
         </div>
+        <div></div>
     </section>
 
     <section id="interface">
@@ -46,13 +46,30 @@
             </div>
         </div>
         <h3 class="i-name">Weather Reports Section</h3>
-        <div class="details">
+        <div class="detail">
             <h1>Weather Details for New Delhi</h1>
             <p><strong>Location:</strong> {{ weather_data['location']['name'] }}</p>
             <p><strong>Temperature:</strong> {{ weather_data['current']['temp_c'] }}&deg;C</p>
             <p><strong>Weather:</strong> {{ weather_data['current']['condition']['text'] }}</p>
             <p><strong>Humidity:</strong> {{ weather_data['current']['humidity'] }}%</p>
             <p><strong>Wind Speed:</strong> {{ weather_data['current']['wind_kph'] }} km/h</p>
+        </div>
+        <div class="head-item">
+            <h2>Weather Conditions</h2>
+            <div class="details">
+                <div>
+                    <h4><i class="fa fa-thermometer-empty" aria-hidden="true"></i> Real Feel </h4><h2>{{weather_data['current']['feelslike_c']}} °C</h2>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-wind"></i> Wind </h4><h2>{{weather_data['current']['wind_kph']}} kph</h2>
+                </div>
+                <div>
+                    <h4>Visibility </h4><h2>{{weather_data['current']['vis_km']}} km</h2>
+                </div>
+                <div>
+                    <h4><i class="fa-regular fa-sun"></i> UV Index </h4><h2>{{weather_data['current']['uv']}}</h2>
+                </div>
+            </div>
         </div>
     </section>
 
