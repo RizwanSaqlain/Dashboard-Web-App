@@ -58,18 +58,21 @@ def annotate_frame(frame, detection_results):
 
 def instant_generate_frames(camera):
     start_time=time.time()
+    frame_count = 0
     while True:
         success, frame = camera.read() 
         if not success:   
             break
 
         else:
+            frame_count += 1
             detected_objects = custom_yolo_detection(frame)
             annotated_frame, class_count = annotate_frame(frame, detected_objects)
 
                 
             end_time = time.time()
-            fps = 1 / np.round(end_time - start_time ,2)
+            elapsed_time = end_time - start_time
+            fps = frame_count / elapsed_time
             cv2.putText(annotated_frame, f"FPS: {fps:.2f}       Total Persons:{class_count[5]}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
 
@@ -85,24 +88,25 @@ def instant_generate_frames(camera):
 
         #time.sleep(0.008)  # Adjust the sleep time to control the frame rate'''
 
-
-
 def capture_frames(frame_queue):
-    cap = cv2.VideoCapture(0)
-    while cap.isOpened():
-        ret, frame = cap.read()
+    camera = cv2.VideoCapture(0)
+    print("Capture started")
+    while camera.isOpened():
+        ret, frame = camera.read()
         if not ret:
             break
         frame_queue.put(frame)
 
-    cap.release()
+    camera.release()
 
 def generate_frames(frame_queue,frame_byte_queue):
     thickness = 2
     start_time=time.time()
     while True:
         if not frame_queue.empty():
+            frame_count = 0
             frame = frame_queue.get()
+            frame_count += 1
             detected_objects = model.predict(source=frame, conf=0.3, verbose=False)
 
             for result in detected_objects:
@@ -130,7 +134,8 @@ def generate_frames(frame_queue,frame_byte_queue):
                     cv2.putText(frame, class_name + ' ' + confidence, (text_x, text_y), font, font_scale, color, font_thickness)
             
             end_time = time.time()
-            fps = 1 / np.round(end_time - start_time ,2)
+            elapsed_time = end_time - start_time
+            fps = frame_count / elapsed_time
             #print(f"Frame Rate: {fps:.2f} FPS")
             cv2.putText(frame, f"FPS: {fps:.2f}      Total Persons:{class_count[5]}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 

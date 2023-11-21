@@ -1,5 +1,5 @@
 from flask import Flask, Request, render_template, Response, jsonify, session
-from ObjectDetection import instant_generate_frames, capture_frames, send_frames
+from ObjectDetection import instant_generate_frames, send_frames, capture_frames
 from API_calls import get_currentWeatherReports
 import cv2
 import time
@@ -12,13 +12,21 @@ camera_active = False
 frame_queue = multiprocessing.Queue(maxsize=5)
 frame_byte_queue = multiprocessing.Queue(maxsize=5)
 
+capture_process = False
 
 def check_camera():
+    global capture_process
     global camera_active
+    print(capture_process)
     if camera_active == True:
+        print("Camer active True")
         camera.release()
         camera_active = False
-            
+    if capture_process:
+        print(capture_process)
+        capture_process.terminate()
+        cap = cv2.VideoCapture(0)
+        cap.release()
 
 '''@app.route("/login", methods=['GET', 'POST'])
 def login():
@@ -61,6 +69,7 @@ def CCTV():
             time.sleep(1)
         time.sleep(2)
         camera_active = True
+
     return render_template("CCTV.html") 
 
 
@@ -72,7 +81,8 @@ def weatherReports():
 
 @app.route('/video_feed')
 def video_feed():
-    #capture_process = multiprocessing.Process(target=capture_frames, args=(frame_queue,))
+    #global capture_process
+    #capture_process = multiprocessing.Process(target=capture_frames,args=(frame_queue,))
     #capture_process.start()
     #return Response(send_frames(frame_queue,frame_byte_queue), mimetype='multipart/x-mixed-replace; boundary=frame')       #When using instant_generate_frames() remove capture process
     return Response(instant_generate_frames(camera), mimetype='multipart/x-mixed-replace; boundary=frame')
